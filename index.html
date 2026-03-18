@@ -1,0 +1,580 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>🌻 Analizador de Girasoles · Argira Station</title>
+<style>
+  * { box-sizing: border-box; margin: 0; padding: 0; }
+  body {
+    min-height: 100vh;
+    background: linear-gradient(135deg, #0f0900 0%, #1a0f00 50%, #0a0500 100%);
+    font-family: Georgia, serif;
+    color: #e8d5a3;
+  }
+  header {
+    background: linear-gradient(90deg, #92400e, #b45309, #92400e);
+    padding: 14px 24px;
+    display: flex;
+    align-items: center;
+    gap: 14px;
+    border-bottom: 2px solid #f59e0b;
+  }
+  header .title { font-size: 17px; font-weight: bold; color: #fef3c7; letter-spacing: 2px; }
+  header .subtitle { font-size: 10px; color: #fbbf24; letter-spacing: 3px; }
+  header .phi { margin-left: auto; text-align: right; font-size: 22px; color: #f59e0b; font-family: monospace; font-weight: bold; }
+  header .phi small { display: block; font-size: 10px; color: #d97706; letter-spacing: 2px; }
+
+  .tabs { display: flex; border-bottom: 1px solid #78350f; background: #1c0f00; overflow-x: auto; }
+  .tab-btn {
+    padding: 10px 16px; background: transparent; color: #a16207;
+    border: none; border-bottom: 2px solid transparent;
+    cursor: pointer; font-size: 12px; letter-spacing: 1px;
+    font-family: Georgia, serif; white-space: nowrap; transition: all .2s;
+  }
+  .tab-btn.active { background: #92400e; color: #fef3c7; border-bottom: 2px solid #f59e0b; }
+
+  .panel { display: none; padding: 20px; max-width: 860px; margin: 0 auto; }
+  .panel.active { display: block; }
+
+  /* Upload */
+  .drop-zone {
+    border: 2px dashed #92400e; border-radius: 12px;
+    padding: 50px 30px; text-align: center;
+    background: rgba(146,64,14,0.1); cursor: pointer; transition: background .2s;
+  }
+  .drop-zone:hover { background: rgba(146,64,14,0.2); }
+  .drop-zone .icon { font-size: 60px; margin-bottom: 14px; }
+  .drop-zone h2 { color: #fbbf24; font-size: 18px; margin-bottom: 8px; }
+  .drop-zone p { color: #a16207; font-size: 13px; }
+  .btn-upload {
+    margin-top: 18px; padding: 10px 28px;
+    background: #92400e; color: #fef3c7;
+    border: none; border-radius: 6px; cursor: pointer;
+    font-size: 14px; font-family: Georgia, serif;
+    display: inline-block;
+  }
+  .tips { display: grid; grid-template-columns: 1fr 1fr 1fr; gap: 10px; margin-top: 18px; }
+  .tip { background: rgba(146,64,14,0.15); border: 1px solid #78350f; border-radius: 8px; padding: 14px; text-align: center; }
+  .tip .tip-icon { font-size: 22px; margin-bottom: 6px; }
+  .tip h4 { color: #fbbf24; font-size: 12px; }
+  .tip p { color: #a16207; font-size: 10px; margin-top: 4px; }
+
+  /* Analyze */
+  .controls { display: flex; gap: 12px; align-items: flex-end; flex-wrap: wrap; margin-bottom: 14px; }
+  .slider-group { flex: 1; min-width: 160px; }
+  .slider-group label { display: block; font-size: 11px; color: #a16207; letter-spacing: 1px; margin-bottom: 4px; }
+  input[type=range] { width: 100%; accent-color: #f59e0b; }
+  .btn-analyze {
+    padding: 10px 22px; background: #b45309; color: #fef3c7;
+    border: 1px solid #f59e0b; border-radius: 6px; cursor: pointer;
+    font-size: 13px; font-family: Georgia, serif; white-space: nowrap;
+  }
+  .btn-analyze:disabled { background: #78350f; cursor: not-allowed; }
+  .canvas-wrap { position: relative; display: inline-block; width: 100%; }
+  canvas { display: block; border-radius: 8px; }
+  #overlay { position: absolute; top: 0; left: 0; width: 100%; height: 100%; border-radius: 8px; pointer-events: none; }
+  .legend {
+    margin-top: 10px; padding: 10px 16px;
+    background: rgba(146,64,14,0.2); border: 1px solid #78350f;
+    border-radius: 6px; display: flex; gap: 20px; flex-wrap: wrap; font-size: 13px;
+  }
+
+  /* Vogel */
+  #vogelCanvas { display: block; margin: 0 auto; border-radius: 50%; }
+  .vogel-meta { text-align: center; margin-bottom: 14px; }
+  .vogel-meta h3 { color: #fbbf24; font-size: 15px; }
+  .vogel-meta p { color: #a16207; font-size: 11px; margin-top: 2px; }
+
+  /* Results */
+  .quality-box {
+    border-radius: 10px; padding: 18px; text-align: center; margin-bottom: 18px;
+  }
+  .quality-box .q-label { font-size: 12px; color: #a16207; letter-spacing: 2px; }
+  .quality-box .q-val { font-size: 26px; font-weight: bold; margin: 8px 0; }
+  .quality-box .q-sub { font-size: 13px; color: #e8d5a3; }
+
+  .stats-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; margin-bottom: 18px; }
+  .stat-card { background: rgba(146,64,14,0.15); border: 1px solid #78350f; border-radius: 8px; padding: 12px 14px; }
+  .stat-card .s-label { color: #a16207; font-size: 10px; letter-spacing: 1px; }
+  .stat-card .s-val { color: #f59e0b; font-size: 20px; font-family: monospace; font-weight: bold; }
+  .stat-card .s-sub { color: #78350f; font-size: 10px; }
+
+  .hist-box { background: rgba(146,64,14,0.1); border: 1px solid #78350f; border-radius: 8px; padding: 14px; margin-bottom: 14px; }
+  .hist-title { color: #fbbf24; font-size: 12px; letter-spacing: 1px; margin-bottom: 10px; }
+  #histSvg { width: 100%; }
+
+  .btn-row { display: flex; gap: 10px; }
+  .btn-dl {
+    flex: 1; padding: 12px; background: #92400e; color: #fef3c7;
+    border: 1px solid #f59e0b; border-radius: 6px; cursor: pointer;
+    font-size: 13px; font-family: Georgia, serif;
+  }
+  .btn-reset {
+    flex: 1; padding: 12px; background: transparent; color: #fbbf24;
+    border: 1px solid #78350f; border-radius: 6px; cursor: pointer;
+    font-size: 13px; font-family: Georgia, serif;
+  }
+  .ref-box {
+    margin-top: 14px; padding: 12px; background: rgba(146,64,14,0.1);
+    border: 1px solid #78350f; border-radius: 8px;
+    font-size: 11px; color: #a16207; line-height: 1.6;
+  }
+  .no-data { text-align: center; padding: 40px; color: #a16207; }
+
+  @media(max-width:500px){
+    .tips { grid-template-columns: 1fr; }
+    .stats-grid { grid-template-columns: 1fr; }
+    .btn-row { flex-direction: column; }
+  }
+</style>
+</head>
+<body>
+
+<header>
+  <span style="font-size:26px">🌻</span>
+  <div>
+    <div class="title">ARGIRA STATION</div>
+    <div class="subtitle">ANALIZADOR DE FILOTAXIS · MODELO DE VOGEL 1979</div>
+  </div>
+  <div class="phi">φ = 1.618...<small>θ = 137.508°</small></div>
+</header>
+
+<div class="tabs">
+  <button class="tab-btn active" onclick="showTab('upload')">📁 Cargar Foto</button>
+  <button class="tab-btn" onclick="showTab('analyze')">🔬 Análisis Real</button>
+  <button class="tab-btn" onclick="showTab('vogel')">🌀 Modelo Vogel</button>
+  <button class="tab-btn" onclick="showTab('results')">📊 Resultados</button>
+</div>
+
+<!-- UPLOAD -->
+<div id="tab-upload" class="panel active">
+  <div class="drop-zone" onclick="document.getElementById('fileInput').click()">
+    <div class="icon">🌻</div>
+    <h2>Carga tu foto de girasol</h2>
+    <p>Haz clic para seleccionar una imagen desde tu dispositivo</p>
+    <div class="btn-upload">Seleccionar imagen</div>
+  </div>
+  <input type="file" id="fileInput" accept="image/*" style="display:none" onchange="handleFile(event)">
+  <div class="tips">
+    <div class="tip"><div class="tip-icon">📐</div><h4>Vista frontal</h4><p>Perpendicular al disco del girasol</p></div>
+    <div class="tip"><div class="tip-icon">☁️</div><h4>Luz difusa</h4><p>Nublado o sombra, sin destellos</p></div>
+    <div class="tip"><div class="tip-icon">🎯</div><h4>Centro visible</h4><p>Semillas claramente distinguibles</p></div>
+  </div>
+</div>
+
+<!-- ANALYZE -->
+<div id="tab-analyze" class="panel">
+  <div id="no-img-msg" class="no-data">← Primero carga una imagen en "Cargar Foto"</div>
+  <div id="analyze-content" style="display:none">
+    <div class="controls">
+      <div class="slider-group">
+        <label>ZONA DE ANÁLISIS: <span id="sensVal">50</span>%</label>
+        <input type="range" id="sensitivity" min="20" max="90" value="50"
+          oninput="document.getElementById('sensVal').textContent=this.value">
+      </div>
+      <button class="btn-analyze" id="analyzeBtn" onclick="runAnalysis()">🔬 Analizar Semillas</button>
+    </div>
+    <div class="canvas-wrap">
+      <canvas id="mainCanvas"></canvas>
+      <canvas id="overlay"></canvas>
+    </div>
+    <div class="legend" id="legend" style="display:none">
+      <span>🟡 Semillas detectadas: <strong id="seedCount">0</strong></span>
+      <span>🔴 Centro del disco</span>
+      <span id="qualityLegend"></span>
+    </div>
+  </div>
+</div>
+
+<!-- VOGEL -->
+<div id="tab-vogel" class="panel">
+  <div class="vogel-meta">
+    <h3>Modelo Sintético — Girasol Perfecto</h3>
+    <p>θₙ = n × 137.508° | rₙ = c√n | Vogel (1979)</p>
+  </div>
+  <canvas id="vogelCanvas" width="340" height="340"></canvas>
+  <div style="margin-top:14px">
+    <label style="font-size:11px;color:#a16207;letter-spacing:1px">SEMILLAS: <span id="vogelVal">500</span></label>
+    <input type="range" id="vogelSlider" min="50" max="1000" step="50" value="500"
+      oninput="document.getElementById('vogelVal').textContent=this.value; drawVogel(+this.value)"
+      style="width:100%;accent-color:#f59e0b;margin-top:4px">
+  </div>
+  <div class="stats-grid" style="margin-top:14px">
+    <div class="stat-card"><div class="s-label">Ángulo áureo</div><div class="s-val">137.508°</div><div class="s-sub">= 360° × (1 - 1/φ)</div></div>
+    <div class="stat-card"><div class="s-label">Proporción φ</div><div class="s-val">1.618034</div><div class="s-sub">(1 + √5) / 2</div></div>
+    <div class="stat-card"><div class="s-label">Radio</div><div class="s-val">∝ √n</div><div class="s-sub">Vogel (1979)</div></div>
+    <div class="stat-card"><div class="s-label">Error teórico</div><div class="s-val">0.000%</div><div class="s-sub">Modelo matemático perfecto</div></div>
+  </div>
+</div>
+
+<!-- RESULTS -->
+<div id="tab-results" class="panel">
+  <div id="no-results" class="no-data">Primero analiza una imagen en "Análisis Real"</div>
+  <div id="results-content" style="display:none">
+    <div class="quality-box" id="qualityBox">
+      <div class="q-label">RESULTADO FINAL</div>
+      <div class="q-val" id="qualityVal"></div>
+      <div class="q-sub">Error relativo: <strong id="errorPctVal"></strong></div>
+    </div>
+    <div class="stats-grid">
+      <div class="stat-card"><div class="s-label">Semillas detectadas</div><div class="s-val" id="rN"></div></div>
+      <div class="stat-card"><div class="s-label">Ángulo promedio</div><div class="s-val" id="rMean"></div><div class="s-sub">Teórico: 137.508°</div></div>
+      <div class="stat-card"><div class="s-label">Desv. estándar</div><div class="s-val" id="rStd"></div><div class="s-sub">Variabilidad biológica</div></div>
+      <div class="stat-card"><div class="s-label">Mediana</div><div class="s-val" id="rMedian"></div><div class="s-sub">Robusto a outliers</div></div>
+      <div class="stat-card"><div class="s-label">Error absoluto</div><div class="s-val" id="rError"></div><div class="s-sub">vs 137.508°</div></div>
+      <div class="stat-card"><div class="s-label">Correlación r∝√n</div><div class="s-val" id="rCorr"></div><div class="s-sub" id="rR2"></div></div>
+    </div>
+    <div class="hist-box">
+      <div class="hist-title">DISTRIBUCIÓN ANGULAR</div>
+      <svg id="histSvg" height="130" viewBox="0 0 400 130"></svg>
+    </div>
+    <div class="btn-row">
+      <button class="btn-dl" onclick="downloadReport()">📄 Descargar Informe</button>
+      <button class="btn-reset" onclick="showTab('analyze')">🔄 Analizar otra foto</button>
+    </div>
+    <div class="ref-box">
+      <strong style="color:#fbbf24">📚 Referencia:</strong> Vogel, H. (1979). "A better way to construct the sunflower head."
+      Mathematical Biosciences 44(3-4): 179-189. | Error esperado en girasoles sanos: 2–5%.
+    </div>
+  </div>
+</div>
+
+<script>
+const GOLDEN_ANGLE = 137.508;
+let currentStats = null;
+let loadedImageUrl = null;
+
+// ── TAB NAVIGATION ──────────────────────────────────────────
+function showTab(name) {
+  document.querySelectorAll('.panel').forEach(p => p.classList.remove('active'));
+  document.querySelectorAll('.tab-btn').forEach(b => b.classList.remove('active'));
+  document.getElementById('tab-' + name).classList.add('active');
+  document.querySelectorAll('.tab-btn').forEach(b => {
+    if (b.textContent.toLowerCase().includes(name === 'upload' ? 'cargar' :
+        name === 'analyze' ? 'anál' : name === 'vogel' ? 'vogel' : 'result')) {
+      b.classList.add('active');
+    }
+  });
+}
+
+// ── FILE LOAD ────────────────────────────────────────────────
+function handleFile(e) {
+  const file = e.target.files[0];
+  if (!file) return;
+  loadedImageUrl = URL.createObjectURL(file);
+  document.getElementById('no-img-msg').style.display = 'none';
+  document.getElementById('analyze-content').style.display = 'block';
+  // Draw image on canvas preview
+  const img = new Image();
+  img.onload = () => {
+    const canvas = document.getElementById('mainCanvas');
+    const max = Math.min(window.innerWidth - 48, 820);
+    const scale = Math.min(max / img.width, max / img.height, 1);
+    canvas.width = img.width * scale;
+    canvas.height = img.height * scale;
+    canvas.style.width = '100%';
+    const ctx = canvas.getContext('2d');
+    ctx.drawImage(img, 0, 0, canvas.width, canvas.height);
+    const ov = document.getElementById('overlay');
+    ov.width = canvas.width; ov.height = canvas.height;
+    ov.style.width = '100%'; ov.style.height = '100%';
+  };
+  img.src = loadedImageUrl;
+  showTab('analyze');
+}
+
+// ── SEED DETECTION ───────────────────────────────────────────
+function detectSeeds(canvas, ctx) {
+  const { width: W, height: H } = canvas;
+  const data = ctx.getImageData(0, 0, W, H).data;
+  const gray = new Float32Array(W * H);
+  for (let i = 0; i < W * H; i++) {
+    gray[i] = 0.299 * data[i*4] + 0.587 * data[i*4+1] + 0.114 * data[i*4+2];
+  }
+  const blockSize = Math.floor(Math.min(W, H) / 28) * 2 + 1;
+  const half = Math.floor(blockSize / 2);
+  const binary = new Uint8Array(W * H);
+  for (let y = half; y < H - half; y++) {
+    for (let x = half; x < W - half; x++) {
+      let sum = 0, cnt = 0;
+      for (let dy = -half; dy <= half; dy += 2) {
+        for (let dx = -half; dx <= half; dx += 2) {
+          sum += gray[(y+dy)*W+(x+dx)]; cnt++;
+        }
+      }
+      binary[y*W+x] = gray[y*W+x] < (sum/cnt) - 8 ? 1 : 0;
+    }
+  }
+  const cell = Math.max(3, Math.floor(Math.min(W,H)/130));
+  const visited = new Uint8Array(W * H);
+  const blobs = [];
+  for (let y = cell; y < H - cell; y += cell) {
+    for (let x = cell; x < W - cell; x += cell) {
+      if (!binary[y*W+x] || visited[y*W+x]) continue;
+      const q = [[x,y]], pts = [];
+      visited[y*W+x] = 1;
+      let qi = 0;
+      while (qi < q.length && pts.length < 250) {
+        const [cx,cy] = q[qi++]; pts.push([cx,cy]);
+        for (const [dx,dy] of [[-1,0],[1,0],[0,-1],[0,1]]) {
+          const nx=cx+dx, ny=cy+dy;
+          if (nx>=0&&nx<W&&ny>=0&&ny<H&&binary[ny*W+nx]&&!visited[ny*W+nx]) {
+            visited[ny*W+nx]=1; q.push([nx,ny]);
+          }
+        }
+      }
+      if (pts.length >= 3 && pts.length <= 180) {
+        blobs.push({
+          x: pts.reduce((s,p)=>s+p[0],0)/pts.length,
+          y: pts.reduce((s,p)=>s+p[1],0)/pts.length
+        });
+      }
+    }
+  }
+  return blobs;
+}
+
+// ── STATISTICS ───────────────────────────────────────────────
+function analyzeSeeds(centroids) {
+  if (centroids.length < 10) return null;
+  const cx = centroids.reduce((s,p)=>s+p.x,0)/centroids.length;
+  const cy = centroids.reduce((s,p)=>s+p.y,0)/centroids.length;
+  const polar = centroids.map(p => {
+    const dx=p.x-cx, dy=p.y-cy;
+    return { r: Math.sqrt(dx*dx+dy*dy), a: ((Math.atan2(dy,dx)*180/Math.PI)+360)%360 };
+  }).sort((a,b)=>a.r-b.r);
+  const diffs = [];
+  for (let i=1;i<polar.length;i++) {
+    let d = polar[i].a - polar[i-1].a;
+    if (d<0) d+=360; if (d>180) d=360-d;
+    if (d>100&&d<175) diffs.push(d);
+  }
+  if (diffs.length<5) return null;
+  const mean = diffs.reduce((s,v)=>s+v,0)/diffs.length;
+  const std  = Math.sqrt(diffs.reduce((s,v)=>s+(v-mean)**2,0)/diffs.length);
+  const sorted = [...diffs].sort((a,b)=>a-b);
+  const median = sorted[Math.floor(sorted.length/2)];
+  const error = Math.abs(mean - GOLDEN_ANGLE);
+  const errorPct = (error/GOLDEN_ANGLE)*100;
+  // Radial correlation
+  const radii = polar.map(p=>p.r);
+  const exp   = radii.map((_,i)=>Math.sqrt(i+1));
+  const mR=radii.reduce((s,v)=>s+v,0)/radii.length;
+  const mE=exp.reduce((s,v)=>s+v,0)/exp.length;
+  const num=radii.reduce((s,v,i)=>s+(v-mR)*(exp[i]-mE),0);
+  const den=Math.sqrt(radii.reduce((s,v)=>s+(v-mR)**2,0)*exp.reduce((s,v)=>s+(v-mE)**2,0));
+  const corr = den>0?num/den:0;
+  let quality,color;
+  if (errorPct<2){quality="EXCELENTE ✓✓✓";color="#22c55e";}
+  else if(errorPct<5){quality="BUENO ✓✓";color="#84cc16";}
+  else if(errorPct<10){quality="ACEPTABLE ✓";color="#f59e0b";}
+  else{quality="POBRE ✗";color="#ef4444";}
+  return {mean,std,median,error,errorPct,corr,quality,color,n:centroids.length,diffs,polar,cx,cy};
+}
+
+// ── MAIN ANALYSIS ────────────────────────────────────────────
+function runAnalysis() {
+  if (!loadedImageUrl) return;
+  const btn = document.getElementById('analyzeBtn');
+  btn.disabled = true; btn.textContent = '⏳ Analizando...';
+
+  const img = new Image();
+  img.onload = () => {
+    const canvas = document.getElementById('mainCanvas');
+    const max = Math.min(window.innerWidth - 48, 820);
+    const scale = Math.min(max/img.width, max/img.height, 1);
+    canvas.width = img.width*scale; canvas.height = img.height*scale;
+    canvas.style.width = '100%';
+    const ctx = canvas.getContext('2d');
+    ctx.drawImage(img, 0, 0, canvas.width, canvas.height);
+
+    const sens = +document.getElementById('sensitivity').value;
+    const cw=canvas.width, ch=canvas.height;
+    const diskR = Math.min(cw,ch)*(sens/100)*0.6;
+    const ocx=cw/2, ocy=ch/2;
+
+    const crop = document.createElement('canvas');
+    crop.width = diskR*2; crop.height = diskR*2;
+    const cctx = crop.getContext('2d');
+    cctx.drawImage(canvas, ocx-diskR, ocy-diskR, diskR*2, diskR*2, 0, 0, diskR*2, diskR*2);
+
+    const blobs = detectSeeds(crop, cctx);
+    const mapped = blobs.map(b=>({ x: b.x+(ocx-diskR), y: b.y+(ocy-diskR) }));
+
+    const stats = analyzeSeeds(mapped);
+    currentStats = stats;
+
+    // Draw overlay
+    const ov = document.getElementById('overlay');
+    ov.width = canvas.width; ov.height = canvas.height;
+    ov.style.width='100%'; ov.style.height='100%';
+    const octx = ov.getContext('2d');
+    octx.clearRect(0,0,ov.width,ov.height);
+    mapped.forEach(s => {
+      octx.beginPath(); octx.arc(s.x,s.y,3,0,Math.PI*2);
+      octx.fillStyle='rgba(251,191,36,0.8)'; octx.fill();
+      octx.strokeStyle='rgba(234,88,12,0.9)'; octx.lineWidth=1; octx.stroke();
+    });
+    if (stats) {
+      octx.beginPath(); octx.arc(stats.cx,stats.cy,7,0,Math.PI*2);
+      octx.fillStyle='#f43f5e'; octx.fill();
+    }
+
+    // Update legend
+    document.getElementById('seedCount').textContent = mapped.length;
+    document.getElementById('legend').style.display = 'flex';
+    if (stats) {
+      document.getElementById('qualityLegend').innerHTML =
+        `⭐ Calidad: <strong style="color:${stats.color}">${stats.quality}</strong>`;
+      updateResults(stats);
+    }
+
+    btn.disabled=false; btn.textContent='🔬 Analizar Semillas';
+  };
+  img.src = loadedImageUrl;
+}
+
+// ── UPDATE RESULTS ───────────────────────────────────────────
+function updateResults(s) {
+  document.getElementById('no-results').style.display='none';
+  document.getElementById('results-content').style.display='block';
+  const qb = document.getElementById('qualityBox');
+  qb.style.background=`rgba(${s.errorPct<2?'34,197,94':s.errorPct<5?'132,204,22':s.errorPct<10?'245,158,11':'239,68,68'},0.15)`;
+  qb.style.border=`1px solid ${s.color}`;
+  document.getElementById('qualityVal').textContent=s.quality;
+  document.getElementById('qualityVal').style.color=s.color;
+  document.getElementById('errorPctVal').textContent=s.errorPct.toFixed(2)+'%';
+  document.getElementById('rN').textContent=s.n;
+  document.getElementById('rMean').textContent=s.mean.toFixed(3)+'°';
+  document.getElementById('rStd').textContent=s.std.toFixed(3)+'°';
+  document.getElementById('rMedian').textContent=s.median.toFixed(3)+'°';
+  document.getElementById('rError').textContent=s.error.toFixed(3)+'°';
+  document.getElementById('rCorr').textContent=s.corr.toFixed(4);
+  document.getElementById('rR2').textContent='R² ≈ '+(s.corr**2).toFixed(4);
+  drawHistogram(s.diffs);
+}
+
+// ── HISTOGRAM ────────────────────────────────────────────────
+function drawHistogram(diffs) {
+  const svg = document.getElementById('histSvg');
+  svg.innerHTML = '';
+  const W=400, H=120, bins=20, minA=100, maxA=175;
+  const bSize=(maxA-minA)/bins;
+  const counts=new Array(bins).fill(0);
+  diffs.forEach(d=>{const b=Math.floor((d-minA)/bSize);if(b>=0&&b<bins)counts[b]++;});
+  const maxC=Math.max(...counts,1);
+  const pad=20;
+  counts.forEach((c,i)=>{
+    const x=pad+(i/bins)*(W-pad*2);
+    const bw=(W-pad*2)/bins-1;
+    const bh=(c/maxC)*85;
+    const cx=minA+(i+0.5)*bSize;
+    const isG=Math.abs(cx-GOLDEN_ANGLE)<bSize;
+    const rect=document.createElementNS('http://www.w3.org/2000/svg','rect');
+    rect.setAttribute('x',x); rect.setAttribute('y',H-bh-20);
+    rect.setAttribute('width',bw); rect.setAttribute('height',bh);
+    rect.setAttribute('fill',isG?'#f59e0b':'rgba(245,158,11,0.35)');
+    if(isG){rect.setAttribute('stroke','#fbbf24');rect.setAttribute('stroke-width','1');}
+    svg.appendChild(rect);
+  });
+  // Baseline
+  const line=document.createElementNS('http://www.w3.org/2000/svg','line');
+  line.setAttribute('x1',pad);line.setAttribute('y1',H-20);
+  line.setAttribute('x2',W-pad);line.setAttribute('y2',H-20);
+  line.setAttribute('stroke','#78350f');line.setAttribute('stroke-width','1');
+  svg.appendChild(line);
+  // Golden angle marker
+  const gx=pad+((GOLDEN_ANGLE-minA)/(maxA-minA))*(W-pad*2);
+  const gl=document.createElementNS('http://www.w3.org/2000/svg','line');
+  gl.setAttribute('x1',gx);gl.setAttribute('y1',0);
+  gl.setAttribute('x2',gx);gl.setAttribute('y2',H-20);
+  gl.setAttribute('stroke','#f43f5e');gl.setAttribute('stroke-width','1.5');
+  gl.setAttribute('stroke-dasharray','4,3');svg.appendChild(gl);
+  const gt=document.createElementNS('http://www.w3.org/2000/svg','text');
+  gt.setAttribute('x',gx+3);gt.setAttribute('y',14);
+  gt.setAttribute('fill','#f43f5e');gt.setAttribute('font-size','9');
+  gt.setAttribute('font-family','monospace');gt.textContent='137.5°';svg.appendChild(gt);
+  // X label
+  const xt=document.createElementNS('http://www.w3.org/2000/svg','text');
+  xt.setAttribute('x',W/2);xt.setAttribute('y',H-3);
+  xt.setAttribute('text-anchor','middle');xt.setAttribute('fill','#78350f');
+  xt.setAttribute('font-size','9');xt.setAttribute('font-family','monospace');
+  xt.textContent='100° ← Ángulo entre semillas → 175°';svg.appendChild(xt);
+}
+
+// ── VOGEL MODEL ──────────────────────────────────────────────
+function drawVogel(n=500) {
+  const canvas = document.getElementById('vogelCanvas');
+  const ctx = canvas.getContext('2d');
+  const S=340, cx=S/2, cy=S/2;
+  ctx.clearRect(0,0,S,S);
+  // Background
+  const grad=ctx.createRadialGradient(cx,cy,0,cx,cy,S/2);
+  grad.addColorStop(0,'#1a0a00'); grad.addColorStop(1,'#0a0500');
+  ctx.fillStyle=grad; ctx.beginPath(); ctx.arc(cx,cy,S/2,0,Math.PI*2); ctx.fill();
+  // Seeds
+  const scale=160;
+  for(let i=1;i<=n;i++){
+    const angle=(i*GOLDEN_ANGLE*Math.PI)/180;
+    const r=scale*Math.sqrt(i/n);
+    const x=cx+r*Math.cos(angle), y=cy+r*Math.sin(angle);
+    const sg=ctx.createRadialGradient(x-0.5,y-0.5,0,x,y,2.5);
+    sg.addColorStop(0,'#f59e0b'); sg.addColorStop(1,'#92400e');
+    ctx.beginPath();
+    const radius=Math.max(1.2, 3-(i/n)*1.5);
+    ctx.arc(x,y,radius,0,Math.PI*2);
+    ctx.fillStyle=sg; ctx.globalAlpha=0.85; ctx.fill();
+  }
+  ctx.globalAlpha=1;
+  ctx.beginPath(); ctx.arc(cx,cy,3,0,Math.PI*2);
+  ctx.fillStyle='#f43f5e'; ctx.fill();
+  // Label
+  ctx.fillStyle='#f59e0b'; ctx.font='10px monospace'; ctx.textAlign='center';
+  ctx.fillText(`θ = 137.508° | r = c√n | n = ${n}`, cx, S-8);
+}
+
+// ── DOWNLOAD REPORT ──────────────────────────────────────────
+function downloadReport() {
+  if (!currentStats) return;
+  const s = currentStats;
+  const txt = `ANÁLISIS DE GIRASOL REAL — ARGIRA STATION
+Fecha: ${new Date().toLocaleDateString('es-ES')}
+${'='.repeat(44)}
+
+RESULTADOS:
+• Semillas detectadas:  ${s.n}
+• Ángulo promedio:      ${s.mean.toFixed(3)}°
+• Ángulo áureo teórico: ${GOLDEN_ANGLE}°
+• Error absoluto:       ${s.error.toFixed(3)}°
+• Error relativo:       ${s.errorPct.toFixed(3)}%
+• Desv. estándar:       ${s.std.toFixed(3)}°
+• Mediana:              ${s.median.toFixed(3)}°
+• Correlación r ∝ √n:  ${s.corr.toFixed(4)}
+• R²:                  ${(s.corr**2).toFixed(4)}
+• Calidad:             ${s.quality}
+
+INTERPRETACIÓN:
+${s.errorPct<2?'Patrón áureo casi perfecto. Girasol en condiciones óptimas.':
+  s.errorPct<5?'Variabilidad biológica natural esperada (2-5%). Resultado típico.':
+  s.errorPct<10?'Factores ambientales presentes (luz, agua, suelo).':
+  'Estrés severo o condiciones subóptimas detectadas.'}
+
+REFERENCIA:
+Vogel, H. (1979). "A better way to construct the sunflower head."
+Mathematical Biosciences 44(3-4): 179-189.
+φ = 1.618034 | θ_áureo = 360° × (1 - 1/φ) = 137.508°
+
+— Argira Station · github.com/username/fibonacci-project`;
+  const blob = new Blob([txt], {type:'text/plain'});
+  const a = document.createElement('a');
+  a.href = URL.createObjectURL(blob);
+  a.download = `analisis_girasol_${new Date().toISOString().slice(0,10)}.txt`;
+  a.click();
+}
+
+// ── INIT ─────────────────────────────────────────────────────
+drawVogel(500);
+</script>
+</body>
+</html>
